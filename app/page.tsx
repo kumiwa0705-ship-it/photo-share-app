@@ -80,6 +80,9 @@ async function getPhotoCount(album: string) {
 }
 
 export default async function Home() {
+  
+   console.log("DEBUG bucket:", process.env.S3_BUCKET_NAME);
+  console.log("DEBUG region:", process.env.APP_AWS_REGION);
   const names = await getAlbumNames();
   const albums = await Promise.all(
     names.map(async (name) => ({
