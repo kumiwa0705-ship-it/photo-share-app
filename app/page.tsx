@@ -6,24 +6,27 @@ import {
 } from "@aws-sdk/client-s3";
 import Header from "./Header";
 
-const s3 = new S3Client({
-  region: process.env.APP_AWS_REGION,
-  credentials: {
-    accessKeyId: process.env.APP_AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.APP_AWS_SECRET_ACCESS_KEY!,
-  },
-});
-
-const bucket = process.env.S3_BUCKET_NAME;
-const region = process.env.APP_AWS_REGION;
+function getS3Client() {
+  return new S3Client({
+    region: process.env.APP_AWS_REGION,
+    credentials: {
+      accessKeyId: process.env.APP_AWS_ACCESS_KEY_ID!,
+      secretAccessKey: process.env.APP_AWS_SECRET_ACCESS_KEY!,
+    },
+  });
+}
 
 function urlFor(key: string) {
-  return `https://${bucket}.s3.${region}.amazonaws.com/${key}`;
+  return `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.APP_AWS_REGION}.amazonaws.com/${key}`;
 }
 
 async function getAlbumNames() {
+  const s3 = getS3Client();
   const result = await s3.send(
-    new ListObjectsV2Command({ Bucket: bucket, Delimiter: "/" })
+    new ListObjectsV2Command({
+      Bucket: process.env.S3_BUCKET_NAME,
+      Delimiter: "/",
+    })
   );
   return (result.CommonPrefixes ?? [])
     .map((p) => p.Prefix!.replace(/\/$/, ""))
@@ -32,9 +35,13 @@ async function getAlbumNames() {
 }
 
 async function thumbnailExists(key: string) {
+  const s3 = getS3Client();
   try {
     await s3.send(
-      new HeadObjectCommand({ Bucket: bucket, Key: `thumbnails/${key}` })
+      new HeadObjectCommand({
+        Bucket: process.env.S3_BUCKET_NAME,
+        Key: `thumbnails/${key}`,
+      })
     );
     return true;
   } catch {
@@ -43,8 +50,12 @@ async function thumbnailExists(key: string) {
 }
 
 async function getCoverPhoto(album: string) {
+  const s3 = getS3Client();
   const result = await s3.send(
-    new ListObjectsV2Command({ Bucket: bucket, Prefix: `${album}/` })
+    new ListObjectsV2Command({
+      Bucket: process.env.S3_BUCKET_NAME,
+      Prefix: `${album}/`,
+    })
   );
   const first = (result.Contents ?? []).find(
     (item) => item.Key && !item.Key.endsWith("/")

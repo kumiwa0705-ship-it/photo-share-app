@@ -2,17 +2,23 @@ import { S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import PhotoGrid from "./PhotoGrid";
 import DeleteAlbumButton from "./DeleteAlbumButton";
 
-const s3 = new S3Client({
-  region: process.env.APP_AWS_REGION,
-  credentials: {
-    accessKeyId: process.env.APP_AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.APP_AWS_SECRET_ACCESS_KEY!,
-  },
-});
+function getS3Client() {
+  return new S3Client({
+    region: process.env.APP_AWS_REGION,
+    credentials: {
+      accessKeyId: process.env.APP_AWS_ACCESS_KEY_ID!,
+      secretAccessKey: process.env.APP_AWS_SECRET_ACCESS_KEY!,
+    },
+  });
+}
 
 async function getPhotos(album: string) {
+  const s3 = getS3Client();
   const result = await s3.send(
-    new ListObjectsV2Command({ Bucket: process.env.S3_BUCKET_NAME, Prefix: `${album}/` })
+    new ListObjectsV2Command({
+      Bucket: process.env.S3_BUCKET_NAME,
+      Prefix: `${album}/`,
+    })
   );
   return (result.Contents ?? [])
     .filter((item) => item.Key && !item.Key.endsWith("/"))
@@ -35,7 +41,7 @@ export default async function AlbumPage({
   return (
     <main className="min-h-screen p-8 md:p-12">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="font-heading text-2xl text-ink">{album}</h1>
+        <h1 className="font-heading text-2xl text-ink">📁 {album}</h1>
         <DeleteAlbumButton album={album} />
       </div>
       <PhotoGrid photos={photos} />
