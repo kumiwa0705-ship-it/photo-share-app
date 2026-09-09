@@ -122,15 +122,7 @@ export default function LoginPage() {
 
         {error && <p className="text-red-600 text-sm mt-4">{error}</p>}
 
-        {mode !== "confirm" && (
-          <button
-            onClick={() => setMode(mode === "signIn" ? "signUp" : "signIn")}
-            className="text-sm text-sepia mt-6 w-full text-center underline"
-          >
-            {mode === "signIn"
-              ? "アカウントをお持ちでない方はこちら"
-              : "すでにアカウントをお持ちの方はこちら"}
-          </button>
+      
         )}
       </div>
     </main>
