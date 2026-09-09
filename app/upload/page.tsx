@@ -4,16 +4,22 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../useAuth";
 
+type UploadStatus = "waiting" | "uploading" | "done" | "error";
+
+type UploadItem = {
+  file: File;
+  status: UploadStatus;
+};
+
 export default function UploadPage() {
   const router = useRouter();
   const { isLoggedIn } = useAuth();
 
-  const [file, setFile] = useState<File | null>(null);
+  const [items, setItems] = useState<UploadItem[]>([]);
   const [albums, setAlbums] = useState<string[]>([]);
   const [selectedAlbum, setSelectedAlbum] = useState("");
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [newAlbumName, setNewAlbumName] = useState("");
-  const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
@@ -45,42 +51,73 @@ export default function UploadPage() {
     }
   };
 
+  const handleFilesSelected = (files: FileList | null) => {
+    if (!files) return;
+    setItems(
+      Array.from(files).map((file) => ({ file, status: "waiting" as const }))
+    );
+  };
+
+  const uploadOne = async (file: File, album: string) => {
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        filename: file.name,
+        contentType: file.type,
+        album,
+      }),
+    });
+    const { uploadUrl } = await res.json();
+
+    await fetch(uploadUrl, {
+      method: "PUT",
+      headers: { "Content-Type": file.type },
+      body: file,
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const album = isAddingNew ? newAlbumName.trim() : selectedAlbum;
-    if (!file || !album) return;
+    if (items.length === 0 || !album) return;
 
     setIsUploading(true);
-    try {
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          filename: file.name,
-          contentType: file.type,
-          album,
-        }),
-      });
-      const { uploadUrl, fileUrl } = await res.json();
 
-      await fetch(uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-
-      setUploadedUrl(fileUrl);
-
-      if (isAddingNew && !albums.includes(album)) {
-        setAlbums((prev) => [...prev, album].sort());
-        setSelectedAlbum(album);
-        setIsAddingNew(false);
-        setNewAlbumName("");
+    // 1枚ずつ順番にアップロードし、進捗を画面に反映する
+    for (let i = 0; i < items.length; i++) {
+      setItems((prev) =>
+        prev.map((item, idx) =>
+          idx === i ? { ...item, status: "uploading" } : item
+        )
+      );
+      try {
+        await uploadOne(items[i].file, album);
+        setItems((prev) =>
+          prev.map((item, idx) =>
+            idx === i ? { ...item, status: "done" } : item
+          )
+        );
+      } catch {
+        setItems((prev) =>
+          prev.map((item, idx) =>
+            idx === i ? { ...item, status: "error" } : item
+          )
+        );
       }
-    } finally {
-      setIsUploading(false);
+    }
+
+    setIsUploading(false);
+
+    if (isAddingNew && !albums.includes(album)) {
+      setAlbums((prev) => [...prev, album].sort());
+      setSelectedAlbum(album);
+      setIsAddingNew(false);
+      setNewAlbumName("");
     }
   };
+
+  const doneCount = items.filter((i) => i.status === "done").length;
 
   if (isLoggedIn !== true) {
     return (
@@ -140,36 +177,53 @@ export default function UploadPage() {
           </div>
 
           <label className="text-sm text-sepia">
-            写真
+            写真(複数選択できます)
             <div className="mt-1 border-2 border-dashed border-accent-soft rounded-2xl p-6 text-center bg-paper">
               <input
                 type="file"
                 accept="image/*"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                multiple
+                onChange={(e) => handleFilesSelected(e.target.files)}
                 className="w-full text-sm text-sepia file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-accent-soft file:text-ink file:cursor-pointer"
               />
             </div>
           </label>
 
+          {items.length > 0 && (
+            <div className="max-h-48 overflow-y-auto flex flex-col gap-1 border border-accent-soft rounded-2xl p-3 bg-paper">
+              {items.map((item, i) => (
+                <div
+                  key={i}
+                  className="flex justify-between items-center text-xs text-sepia"
+                >
+                  <span className="truncate flex-1">{item.file.name}</span>
+                  <span className="ml-2 shrink-0">
+                    {item.status === "waiting" && "待機中"}
+                    {item.status === "uploading" && "アップロード中…"}
+                    {item.status === "done" && "完了"}
+                    {item.status === "error" && "アップロードできませんでした"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
           <button
             type="submit"
-            disabled={!file || isUploading || (isAddingNew && !newAlbumName.trim())}
+            disabled={
+              items.length === 0 ||
+              isUploading ||
+              (isAddingNew && !newAlbumName.trim())
+            }
             className="bg-accent text-paper-light font-heading rounded-full py-2.5 hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {isUploading ? "アップロード中…" : "アップロード"}
+            {isUploading
+              ? `アップロード中… (${doneCount}/${items.length})`
+              : items.length > 0
+              ? `${items.length}枚をアップロード`
+              : "アップロード"}
           </button>
         </form>
-
-        {uploadedUrl && (
-          <div className="mt-8 border-t border-accent-soft pt-6">
-            <p className="text-sm text-sepia mb-3">アップロード成功</p>
-            <img
-              src={uploadedUrl}
-              alt="uploaded"
-              className="w-full rounded-2xl photo-vintage shadow-sm"
-            />
-          </div>
-        )}
       </div>
     </main>
   );
