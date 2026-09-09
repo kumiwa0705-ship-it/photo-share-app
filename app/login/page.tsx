@@ -123,7 +123,6 @@ export default function LoginPage() {
         {error && <p className="text-red-600 text-sm mt-4">{error}</p>}
 
       
-        )}
       </div>
     </main>
   );
