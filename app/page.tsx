@@ -5,6 +5,7 @@ import {
   HeadObjectCommand,
 } from "@aws-sdk/client-s3";
 import Header from "./Header";
+export const dynamic = "force-dynamic";
 
 function getS3Client() {
   return new S3Client({

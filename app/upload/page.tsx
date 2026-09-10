@@ -83,8 +83,8 @@ export default function UploadPage() {
     if (items.length === 0 || !album) return;
 
     setIsUploading(true);
+    let hasError = false;
 
-    // 1枚ずつ順番にアップロードし、進捗を画面に反映する
     for (let i = 0; i < items.length; i++) {
       setItems((prev) =>
         prev.map((item, idx) =>
@@ -99,6 +99,7 @@ export default function UploadPage() {
           )
         );
       } catch {
+        hasError = true;
         setItems((prev) =>
           prev.map((item, idx) =>
             idx === i ? { ...item, status: "error" } : item
@@ -114,6 +115,12 @@ export default function UploadPage() {
       setSelectedAlbum(album);
       setIsAddingNew(false);
       setNewAlbumName("");
+    }
+
+    if (!hasError) {
+      setTimeout(() => {
+        router.push("/");
+      }, 800);
     }
   };
 

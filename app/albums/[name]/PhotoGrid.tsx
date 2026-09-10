@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../useAuth";
 
-type Photo = { key: string; url: string };
+type Photo = { key: string; thumbnailUrl: string; fullUrl: string };
 
 export default function PhotoGrid({ photos }: { photos: Photo[] }) {
   const router = useRouter();
@@ -40,15 +40,13 @@ export default function PhotoGrid({ photos }: { photos: Photo[] }) {
   const handleDownload = async (photo: Photo) => {
     setIsDownloading(true);
     try {
-      const res = await fetch(photo.url);
+      const res = await fetch(photo.fullUrl);
       const blob = await res.blob();
       const blobUrl = URL.createObjectURL(blob);
-
       const link = document.createElement("a");
       link.href = blobUrl;
       link.download = photo.key.split("/").pop() || "photo.jpg";
       link.click();
-
       URL.revokeObjectURL(blobUrl);
     } finally {
       setIsDownloading(false);
@@ -64,8 +62,9 @@ export default function PhotoGrid({ photos }: { photos: Photo[] }) {
             className="mb-4 break-inside-avoid rounded-2xl bg-paper-light border border-accent-soft shadow-sm overflow-hidden"
           >
             <img
-              src={photo.url}
+              src={photo.thumbnailUrl}
               alt=""
+              loading="lazy"
               onClick={() => setPreviewPhoto(photo)}
               className="w-full h-auto block photo-vintage cursor-pointer"
             />
@@ -120,7 +119,7 @@ export default function PhotoGrid({ photos }: { photos: Photo[] }) {
             onClick={(e) => e.stopPropagation()}
           >
             <img
-              src={previewPhoto.url}
+              src={previewPhoto.fullUrl}
               alt=""
               className="max-h-[75vh] w-auto rounded-2xl shadow-2xl photo-vintage"
             />
