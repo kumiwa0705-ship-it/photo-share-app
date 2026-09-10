@@ -77,36 +77,28 @@ export default function UploadPage() {
     });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const album = isAddingNew ? newAlbumName.trim() : selectedAlbum;
     if (items.length === 0 || !album) return;
 
     setIsUploading(true);
-    let hasError = false;
 
-    for (let i = 0; i < items.length; i++) {
-      setItems((prev) =>
-        prev.map((item, idx) =>
-          idx === i ? { ...item, status: "uploading" } : item
-        )
-      );
-      try {
-        await uploadOne(items[i].file, album);
-        setItems((prev) =>
-          prev.map((item, idx) =>
-            idx === i ? { ...item, status: "done" } : item
-          )
-        );
-      } catch {
-        hasError = true;
-        setItems((prev) =>
-          prev.map((item, idx) =>
-            idx === i ? { ...item, status: "error" } : item
-          )
-        );
-      }
-    }
+    // 全員を「アップロード中」にしてから、並行して送信する
+    setItems((prev) => prev.map((item) => ({ ...item, status: "uploading" })));
+
+    const results = await Promise.allSettled(
+      items.map((item) => uploadOne(item.file, album))
+    );
+
+    setItems((prev) =>
+      prev.map((item, idx) => ({
+        ...item,
+        status: results[idx].status === "fulfilled" ? "done" : "error",
+      }))
+    );
+
+    const hasError = results.some((r) => r.status === "rejected");
 
     setIsUploading(false);
 
@@ -120,7 +112,7 @@ export default function UploadPage() {
     if (!hasError) {
       setTimeout(() => {
         router.push("/");
-      }, 800);
+      }, 400);
     }
   };
 
